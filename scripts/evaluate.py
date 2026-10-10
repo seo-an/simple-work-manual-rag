@@ -1,4 +1,4 @@
-"""Offline retrieval and abstention evaluation; no model credentials required."""
+"""Offline top-1 retrieval + no-evidence evaluation (no LLM required)."""
 from __future__ import annotations
 import json
 from app.config import Settings
@@ -19,8 +19,18 @@ def evaluate(db_path):
     outcomes = []
     for query, kind, expected in CASES:
         sources = retrieve(query, db_path, limit=3)
-        found = any(s.kind == kind and expected in s.source_id for s in sources) if expected else not sources
-        outcomes.append({"question": query, "pass": found, "source_ids": [s.source_id for s in sources]})
+        # The answer generator uses sources[0]. Recall@3 alone can conceal wrong answers.
+        first = sources[0] if sources else None
+        passed = (
+            first is not None and first.kind == kind and expected in first.source_id
+            if expected else not sources
+        )
+        outcomes.append({
+            "question": query,
+            "pass": passed,
+            "top_source": first.source_id if first else None,
+            "source_ids": [s.source_id for s in sources],
+        })
     return {"total": len(outcomes), "passed": sum(i["pass"] for i in outcomes), "cases": outcomes}
 
 
@@ -30,6 +40,7 @@ def main():
     if not cfg.db_path.is_file():
         build_index(cfg.data_dir, cfg.db_path)
     print(json.dumps(evaluate(cfg.db_path), ensure_ascii=False, indent=2))
+
 
 if __name__ == "__main__":
     main()
