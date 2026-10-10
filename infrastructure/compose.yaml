@@ -1,0 +1,16 @@
+services:
+  simple-work-manual-rag:
+    build:
+      context: ..
+    container_name: simple-work-manual-rag
+    env_file:
+      - ../.env
+    environment:
+      DATA_DIR: /app/data/sample
+      DB_PATH: /app/runtime/manuals.db
+    ports:
+      - "127.0.0.1:23232:23232"
+    volumes:
+      - ../runtime:/app/runtime
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "23232"]
+    restart: unless-stopped
