@@ -1,4 +1,4 @@
-"""Hybrid deterministic lexical matching with exact file metadata priority."""
+"""Hybrid lexical retrieval: Excel file locations + Markdown policy sections."""
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -15,6 +15,10 @@ SYNONYMS = {
     "구매": ("비품", "물품", "구입"),
     "휴게실": ("탕비실", "라운지", "냉장고"),
 }
+
+FILE_INTENT = ("어디", "위치", "경로", "다운로드", "찾아", "양식", "서식", "파일", "신청서")
+POLICY_INTENT = ("규정", "규칙", "기준", "절차", "조건", "대상", "기간", "일수", "며칠", "몇일", "가능", "승인", "방법", "지원", "금액")
+
 
 @dataclass(frozen=True)
 class Source:
@@ -44,6 +48,20 @@ def terms(question: str) -> list[str]:
             if stem in word or any(v in word for v in variants):
                 expanded += [stem, *variants]
     return list(dict.fromkeys(expanded))
+
+
+def query_intent(question: str) -> str | None:
+    """Prefer locations for explicit file requests and policies for rule questions.
+
+    This is a small deterministic PoC heuristic, not a semantic intent classifier.
+    Ambiguous questions retain mixed-source ranking.
+    """
+    q = compact(question)
+    if any(word in q for word in FILE_INTENT):
+        return "file"
+    if any(word in q for word in POLICY_INTENT):
+        return "manual"
+    return None
 
 
 def _score(question: str, title: str, section: str, body: str, kind: str) -> float:
@@ -80,7 +98,17 @@ def retrieve(question: str, db_path: Path, limit: int = 3) -> list[Source]:
                 candidates.append(Source(file_id, "file", title, "파일 목록", summary, loc, ext, score))
         for row in conn.execute("SELECT doc_id,title,section,body FROM chunks"):
             doc_id, title, section, body = row
+            # SAMPLE_POLICY blocks are demo metadata, not answer evidence.
+            if body.lstrip().startswith("> SAMPLE_POLICY:"):
+                continue
             score = _score(question, title, section, body, "manual")
             if score >= 2:
                 candidates.append(Source(doc_id + "#" + section, "manual", title, section, body[:1100], score=score))
-    return sorted(candidates, key=lambda x: (-x.score, x.source_id))[:limit]
+
+    intent = query_intent(question)
+    # Intent is a primary ranking key; lexical relevance breaks ties.
+    # Retain other source types as supporting evidence rather than discarding them.
+    return sorted(
+        candidates,
+        key=lambda item: (0 if intent is None or item.kind == intent else 1, -item.score, item.source_id),
+    )[:limit]
