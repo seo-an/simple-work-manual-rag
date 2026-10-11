@@ -14,7 +14,7 @@ import sqlite3
 VISIBLE_SECTION = "LTRIM(body) NOT LIKE '> SAMPLE_POLICY:%'"
 
 
-def _connect(db_path: Path) -> sqlite3.Connection:
+def open_index(db_path: Path) -> sqlite3.Connection:
     """Open the published index read-only; never silently create an empty DB."""
     if not db_path.is_file():
         raise sqlite3.OperationalError("search index unavailable")
@@ -44,7 +44,7 @@ def list_files(
     where = " WHERE " + " AND ".join(predicates) if predicates else ""
     columns = "file_id,title,summary,location,extension,keywords"
 
-    with closing(_connect(db_path)) as conn:
+    with closing(open_index(db_path)) as conn:
         total = conn.execute("SELECT COUNT(*) FROM files" + where, values).fetchone()[0]
         rows = conn.execute(
             f"SELECT {columns} FROM files{where} "
@@ -59,7 +59,7 @@ def list_files(
 
 def get_file(db_path: Path, file_id: str) -> dict | None:
     columns = "file_id,title,summary,location,extension,keywords"
-    with closing(_connect(db_path)) as conn:
+    with closing(open_index(db_path)) as conn:
         row = conn.execute(
             f"SELECT {columns} FROM files WHERE file_id = ?", (file_id,),
         ).fetchone()
@@ -89,16 +89,19 @@ def list_manuals(
             "AND (s.section LIKE ? ESCAPE '\\' OR s.body LIKE ? ESCAPE '\\')))"
         )
         params = [_like(q)] * 3
-    with closing(_connect(db_path)) as conn:
-        rows = conn.execute(base + " ORDER BY docs.title COLLATE NOCASE, docs.doc_id", params).fetchall()
-    # SQLite catalog is deliberately small; apply stable pagination after filtering.
+    with closing(open_index(db_path)) as conn:
+        total = conn.execute("SELECT COUNT(*) FROM (" + base + ") AS matches", params).fetchone()[0]
+        rows = conn.execute(
+            base + " ORDER BY docs.title COLLATE NOCASE, docs.doc_id LIMIT ? OFFSET ?",
+            [*params, limit, offset],
+        ).fetchall()
     return {
         "items": [
             {"manual_id": doc_id.removeprefix("manuals/"), "title": title,
              "section_count": count}
-            for doc_id, title, count in rows[offset:offset + limit]
+            for doc_id, title, count in rows
         ],
-        "total": len(rows), "limit": limit, "offset": offset,
+        "total": total, "limit": limit, "offset": offset,
     }
 
 
@@ -106,7 +109,7 @@ def get_manual(db_path: Path, manual_id: str) -> dict | None:
     if not manual_id or manual_id.startswith("/") or ".." in Path(manual_id).parts:
         return None
     doc_id = "manuals/" + manual_id
-    with closing(_connect(db_path)) as conn:
+    with closing(open_index(db_path)) as conn:
         rows = conn.execute(
             f"SELECT title, section, body FROM chunks WHERE doc_id = ? "
             f"AND {VISIBLE_SECTION} ORDER BY id",
@@ -125,7 +128,7 @@ def get_manual(db_path: Path, manual_id: str) -> dict | None:
 
 
 def index_status(db_path: Path) -> dict:
-    with closing(_connect(db_path)) as conn:
+    with closing(open_index(db_path)) as conn:
         files = conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
         manuals, sections = conn.execute(
             f"SELECT COUNT(DISTINCT doc_id), COUNT(*) FROM chunks "
