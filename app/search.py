@@ -4,7 +4,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from contextlib import closing
 import re
-import sqlite3
+from .catalog import open_index
 
 STOP = {"어디", "어떻게", "알려줘", "알려주세요", "할까요", "있나요", "해야", "대한", "뭐야", "뭔가요", "위치", "관련", "절차", "규정", "방법", "사용", "서류", "파일", "자료", "안내"}
 SYNONYMS = {
@@ -90,7 +90,7 @@ def retrieve(question: str, db_path: Path, limit: int = 3) -> list[Source]:
     if not question.strip() or len(question) > 1000:
         raise ValueError("question must be between 1 and 1000 characters")
     candidates: list[Source] = []
-    with closing(sqlite3.connect(db_path)) as conn:
+    with closing(open_index(db_path)) as conn:
         for row in conn.execute("SELECT file_id,title,summary,location,extension,keywords FROM files"):
             file_id, title, summary, loc, ext, keywords = row
             score = _score(question, title, keywords, summary + " " + loc, "file")
