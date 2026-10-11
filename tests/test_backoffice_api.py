@@ -67,9 +67,11 @@ class BackofficeApiTests(TestCase):
     def test_file_search_and_extension_filter(self):
         by_name = self.client.get("/api/v1/files", params={"q": "기안서"}).json()
         self.assertIn("doc-001", [row["file_id"] for row in by_name["items"]])
-        no_files = self.client.get(
-            "/api/v1/files", params={"extension": "definitely_unknown"}
-        ).json()
+        response = self.client.get(
+            "/api/v1/files", params={"extension": "xyz"}
+        )
+        self.assertEqual(response.status_code, 200)
+        no_files = response.json()
         self.assertEqual(no_files["items"], [])
         self.assertEqual(no_files["total"], 0)
         escaped = self.client.get(
@@ -113,6 +115,12 @@ class BackofficeApiTests(TestCase):
         self.assertGreaterEqual(data["manuals"], 1)
         self.assertGreaterEqual(data["sections"], data["manuals"])
         self.assertIn("+00:00", data["indexed_at"])
+
+    def test_extension_over_maximum_length_returns_422(self):
+        response = self.client.get(
+            "/api/v1/files", params={"extension": "definitely_unknown"}
+        )
+        self.assertEqual(response.status_code, 422)
 
     def test_invalid_pagination_fails_validation(self):
         for url, params in (
