@@ -1,7 +1,7 @@
 """Typed HTTP response contracts rendered directly into FastAPI OpenAPI docs."""
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class FileRecord(BaseModel):
@@ -70,6 +70,14 @@ class QueryRequest(BaseModel):
         description="한국어 자연어 질문", examples=["경조휴가 규정을 알려줘"],
     )
     top_k: int = Field(default=3, ge=1, le=5, description="최대 근거 자료 수")
+
+    @field_validator("question")
+    @classmethod
+    def nonblank_question(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("question must not be blank")
+        return value
 
 
 class QueryResponse(BaseModel):
