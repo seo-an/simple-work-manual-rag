@@ -123,6 +123,12 @@ class BackofficeApiTests(TestCase):
             with self.subTest(url=url, params=params):
                 self.assertEqual(self.client.get(url, params=params).status_code, 422)
 
+    def test_blank_question_returns_validation_error(self):
+        self.assertEqual(
+            self.client.post("/api/v1/query", json={"question": "   "}).status_code,
+            422,
+        )
+
     def test_no_implicit_empty_index_creation_on_missing_db(self):
         self.db_path.unlink()
         for url in ("/api/v1/files", "/api/v1/manuals", "/api/v1/index/status"):
