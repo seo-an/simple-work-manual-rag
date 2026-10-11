@@ -5,11 +5,11 @@
 이 프로젝트의 데이터는 특정 회사 문서를 익명화하여 전재한 것이 아니라 새로 작성한 **가상 조직의 예시**입니다. 회사 고유 규정, 경조휴가 일수, 파일 위치는 실제 근로조건이 아닙니다.
 
 ## 구현 기능
-- Hybrid retrieval: Excel 파일 목록 + Markdown 업무 규정 검색 (SQLite, FTS5 인덱스 생성 시도, 한국어 별칭 점수화)
+- Lexical retrieval: Excel 파일 목록 + Markdown 업무 규정의 SQLite 색인을 대상으로 한국어 키워드·별칭·질문 의도 기반 순위화 (FTS5 인덱스는 생성 시도하지만 현재 검색에는 직접 사용하지 않음)
 - Evidence grounding: 출처 배열과 근거 부족 시 insufficient_evidence 반환
 - Data-driven knowledge: Excel/Markdown 교체 후 재색인
 - RAG evaluation: 오프라인 질문 세트 및 unittest
-- Transport-neutral API: Hermes/Slack 및 추후 Next.js에서 동일하게 호출
+- Transport-neutral API: 백오피스 서버(BFF)·CLI·Agent 등 클라이언트에 종속되지 않는 조회 계약
 
 ## 로컬 실행
 
@@ -41,7 +41,7 @@ Docker:
     mkdir -p runtime
     docker compose -f infrastructure/compose.yaml up --build -d
 
-포트는 127.0.0.1:23232로만 공개한다. Hermes 연결은 별도 Private agent-config PR에서 수행한다.
+Docker의 호스트 바인딩은 127.0.0.1:23232로 제한한다. 외부 접속 테스트에는 인증을 켠 별도 HTTPS 터널을 사용했으며, 상시 서비스 운영을 의미하지 않는다.
 
 ## 데이터 교체
 
