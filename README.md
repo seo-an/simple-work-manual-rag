@@ -1,6 +1,6 @@
 # Simple Work Manual RAG
 
-**Python + FastAPI + SQLite · Excel + Markdown · Public 샘플 RAG API**
+**Python + FastAPI + SQLite · Excel + Markdown · 공개용 샘플 업무 문서 검색·조회 API**
 
 이 프로젝트의 데이터는 특정 회사 문서를 익명화하여 전재한 것이 아니라 새로 작성한 **가상 조직의 예시**입니다. 회사 고유 규정, 경조휴가 일수, 파일 위치는 실제 근로조건이 아닙니다.
 
@@ -21,11 +21,19 @@ Python 3.12 권장. 저장소 루트에서:
     python3 -m scripts.reindex
     uvicorn app.main:app --host 127.0.0.1 --port 23232
 
-API:
+API (v0.2, 읽기 전용):
 - GET http://127.0.0.1:23232/api/v1/health
 - POST http://127.0.0.1:23232/api/v1/query
-- JSON 요청: {"question":"기안서 양식 어디 있어?"}
-- OpenAPI 문서: http://127.0.0.1:23232/docs
+- GET http://127.0.0.1:23232/api/v1/files?q=기안서&limit=20&offset=0
+- GET http://127.0.0.1:23232/api/v1/files/doc-001
+- GET http://127.0.0.1:23232/api/v1/manuals?q=경조휴가
+- GET http://127.0.0.1:23232/api/v1/manuals/family_events.md
+- GET http://127.0.0.1:23232/api/v1/index/status
+- JSON 질의 예시: {"question":"기안서 양식 어디 있어?","top_k":3}
+- Swagger UI: http://127.0.0.1:23232/docs
+- OpenAPI JSON: http://127.0.0.1:23232/openapi.json
+
+자세한 요청/응답 계약 및 백오피스 서버 측 인증 경계는 [백오피스 API 계약서](docs/API_CONTRACT.md)를 참고한다. `X-Service-Key`는 서버 간 인증용이므로 웹 프론트엔드 코드에 포함하지 않는다.
 
 Docker:
 
@@ -58,7 +66,8 @@ Docker:
 
 오프라인 테스트 질문 6개는 공개용 소규모 예제일 뿐 실제 환경의 검색 정확도를 의미하지 않는다.
 
-## 후속 과제
-- 새 Hermes 상담봇과 Slack DM 연결 (Private 저장소 별도 PR)
-- Next.js 프론트, 사용자별 접근권한, 실제 사내자료 반영
-- 고충 접수·신고서 작성 (이번 범위 제외)
+## 포트폴리오 범위 및 후속 과제
+- 구현 범위: 검색/파일·매뉴얼 목록/상세, 색인 현황, 서비스 키 인증 및 테스트를 포함하는 **백오피스 연동용 조회 API**
+- 미구현: 실제 백오피스 연동·인계, 파일 업로드/변경, 사용자별 접근권한, 실제 회사 데이터, 생성형 LLM 라이브 검증
+- Hermes/Slack 연결은 이 API의 독립적 활용 사례이며 본 저장소의 완성 조건이 아니다.
+- 향후 사용자별 인가/감사 로그, 동시 사용자 부하 테스트, 자동 색인, 실제 운영 데이터 거버넌스 검토가 필요하다.
